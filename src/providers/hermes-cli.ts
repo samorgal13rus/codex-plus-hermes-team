@@ -224,13 +224,24 @@ export function parseProfileList(output: string): ProfileListRow[] {
   return rows;
 }
 
-function buildSpecialistPrompt(profile: string, task: string, sideEffectPolicy: SideEffectPolicy) {
+const MEMORY_OS_V5_GUARDRAIL = [
+  "Memory OS v5 guardrail:",
+  "- Treat C:\\KeliganMemory as the single clean memory surface for Alexey/Keligan work.",
+  "- Do not create or rely on a second memory.",
+  "- Do not treat old Canon/Agenstvo folders, Graphify outputs, checkpoints, or research notes as final truth without explicit checked source context.",
+  "- If durable memory/current-truth context is needed but was not supplied and you cannot safely read it under the side-effect policy, say `needs_memory_context` instead of guessing.",
+  "- Any proposed write must stay pending/receipt-backed and preserve backup/rollback boundaries."
+].join("\n");
+
+export function buildSpecialistPrompt(profile: string, task: string, sideEffectPolicy: SideEffectPolicy) {
   return [
     `You are being consulted through Codex + Hermes Team as Hermes profile \`${profile}\`.`,
     "",
     "Answer as a specialist. Be concise, concrete, and useful to a coding assistant that will synthesize the final answer.",
     `Side-effect policy: ${sideEffectPolicy}`,
     describeSideEffectPolicy(sideEffectPolicy),
+    "",
+    MEMORY_OS_V5_GUARDRAIL,
     "If the task needs another specialist, say who should be consulted and why.",
     "",
     "Task:",
