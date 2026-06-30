@@ -65,6 +65,16 @@ export class HermesCliProvider {
       input.sideEffectPolicy,
       this.config.safety.defaultSideEffectPolicy
     );
+
+    if (shouldFailClosedForMemoryOsTask(input.prompt, sideEffectPolicy)) {
+      return {
+        profile: input.profile,
+        text: buildMemoryOsFailClosedResponse(),
+        sideEffectPolicy,
+        stderr: "Blocked by Memory OS v5 fail-closed guardrail: missing context pack."
+      };
+    }
+
     const prompt = buildSpecialistPrompt(input.profile, input.prompt, sideEffectPolicy);
 
     const args = [
@@ -233,6 +243,12 @@ const MEMORY_OS_V5_GUARDRAIL = [
   "- Any proposed write must stay pending/receipt-backed and preserve backup/rollback boundaries."
 ].join("\n");
 
+const MEMORY_OS_CONTEXT_REQUIRED_PATTERN =
+  /\b(memory os|keliganmemory|c:\\keliganmemory|keligan|calligan|canon|agenstvo)\b|алексей|келиг(?:ан|анmemory)|памят(?:ь|и)|текущ(?:ая|ую|ей) правд|источник(?:и|ов)? правд/iu;
+
+const SUPPLIED_CONTEXT_PATTERN =
+  /\b(memory os context pack|recall context|source-backed|source paths?|provided context|supplied context)\b|контекст памяти|пакет контекста|источник(?:и|ов) приложен|с опорой на источник/iu;
+
 export function buildSpecialistPrompt(profile: string, task: string, sideEffectPolicy: SideEffectPolicy) {
   return [
     `You are being consulted through Codex + Hermes Team as Hermes profile \`${profile}\`.`,
@@ -246,6 +262,19 @@ export function buildSpecialistPrompt(profile: string, task: string, sideEffectP
     "",
     "Task:",
     task
+  ].join("\n");
+}
+
+export function shouldFailClosedForMemoryOsTask(task: string, sideEffectPolicy: SideEffectPolicy): boolean {
+  if (sideEffectPolicy !== "advice_only") return false;
+  return MEMORY_OS_CONTEXT_REQUIRED_PATTERN.test(task) && !SUPPLIED_CONTEXT_PATTERN.test(task);
+}
+
+export function buildMemoryOsFailClosedResponse(): string {
+  return [
+    "needs_memory_context",
+    "",
+    "Bridge fail-closed: this task appears to require Alexey/Keligan durable memory truth, but no Memory OS context pack or source-backed recall context was supplied. Provide source paths/context first, or rerun with a read-only policy that can safely inspect the memory surface."
   ].join("\n");
 }
 

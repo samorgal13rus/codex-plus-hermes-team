@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildSpecialistPrompt, parseProfileList } from "../src/providers/hermes-cli.js";
+import {
+  buildMemoryOsFailClosedResponse,
+  buildSpecialistPrompt,
+  parseProfileList,
+  shouldFailClosedForMemoryOsTask
+} from "../src/providers/hermes-cli.js";
 
 describe("parseProfileList", () => {
   it("parses Hermes profile table output", () => {
@@ -29,5 +34,34 @@ describe("buildSpecialistPrompt", () => {
     expect(prompt).toContain("needs_memory_context");
     expect(prompt).toContain("pending/receipt-backed");
     expect(prompt).toMatch(/Memory OS v5 guardrail:[\s\S]+Task:\nCheck memory boundary\./);
+  });
+});
+
+describe("Memory OS v5 fail-closed guardrail", () => {
+  it("blocks advice-only durable memory truth requests without supplied context", () => {
+    expect(
+      shouldFailClosedForMemoryOsTask(
+        "What is the current truth in C:\\KeliganMemory about Alexey's Memory OS?",
+        "advice_only"
+      )
+    ).toBe(true);
+
+    expect(buildMemoryOsFailClosedResponse()).toContain("needs_memory_context");
+  });
+
+  it("allows source-backed context packs and read-only policy", () => {
+    expect(
+      shouldFailClosedForMemoryOsTask(
+        "Memory OS context pack: source paths are supplied. Summarize this source-backed evidence.",
+        "advice_only"
+      )
+    ).toBe(false);
+
+    expect(
+      shouldFailClosedForMemoryOsTask(
+        "What is the current truth in C:\\KeliganMemory about Alexey's Memory OS?",
+        "read_only"
+      )
+    ).toBe(false);
   });
 });
